@@ -34,7 +34,7 @@ from sklearn.ensemble import RandomForestRegressor
 from statsmodels.tsa.holtwinters import Holt
 import plotly.graph_objects as go
 
-LAST_COMPLETE_FY = 2026
+LAST_COMPLETE_FY = None  # Auto: latest completed FY in the updated extract
 FORECAST_HORIZON = 3
 EXCLUDED_GL_CODES = [42, 4860, 4870]
 LOOKBACK = 10
@@ -79,6 +79,16 @@ for column in ['GL Number', 'fy', 'Amount']:
     df_all[column] = pd.to_numeric(df_all[column], errors='raise')
 if df_all[['GL Number', 'fy', 'Amount']].isna().any().any():
     raise ValueError('Missing GL, fiscal year, or revenue values require review.')
+# Recalculate the origin on every run after reading the refreshed CSV.
+import sys
+sys.path.insert(0, str(project_root / 'script'))
+from forecast_calendar import forecast_calendar
+included_dates = df_all.loc[~df_all['GL Number'].isin(EXCLUDED_GL_CODES), 'Date']
+refresh_calendar = forecast_calendar(included_dates)
+if LAST_COMPLETE_FY is None:
+    LAST_COMPLETE_FY = refresh_calendar['complete_fy']
+print(f"Latest source date: {refresh_calendar['extract_date'].date()}; completed FY cutoff: {LAST_COMPLETE_FY}")
+
 df_all_filtered = df_all.loc[
     ~df_all['GL Number'].isin(EXCLUDED_GL_CODES) & df_all['fy'].le(LAST_COMPLETE_FY)
 ].copy()
@@ -95,7 +105,7 @@ display(annual_revenue.head())
 # %% [markdown]
 # ## 3. Available history and data status
 # By default, missing years are not treated as zero. Models use the latest uninterrupted history.
-# A GL without FY 2026 records remains in the CSV with unavailable forecasts and a review verdict.
+# A GL without cutoff-FY records remains in the CSV with unavailable forecasts and a review verdict.
 # Current GLs with short histories get only methods that have enough observations.
 # Negative net revenue is preserved: a model trained on negative values has no zero floor.
 
@@ -248,7 +258,7 @@ backtest_predictions = pd.DataFrame(backtest_rows, columns=[
 print('Backtesting complete.')
 
 # %% [markdown]
-# ## 6. Forecast FY 2027-2029
+# ## 6. Forecast the next three fiscal years
 # Blank forecast values mean the method could not be supported by the available data.
 # A stale-data carry-forward option supplies only the baseline, never a disguised fitted model.
 

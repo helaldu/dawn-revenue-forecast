@@ -12,7 +12,7 @@
 # | Scenario % | A percentage increase/decrease applied only to the future projection |
 # | Scenario mode | Same percentage each year, or compounded annually |
 #
-# Forecast origin is FY 2026 by default. Change LAST_COMPLETE_FY below and rerun to use another origin.
+# Forecast origin advances automatically with the latest completed FY in the updated data.
 # All revenue Types are included. Codes 42, 4860, and 4870 are excluded.
 # No absent year is filled with zero. A selection without records in the origin FY has no supported forecast.
 # Model verdicts use chronological backtesting, not the user-created scenario adjustments.
@@ -40,7 +40,7 @@ from sklearn.ensemble import RandomForestRegressor
 from statsmodels.tsa.holtwinters import Holt
 from IPython.display import display, IFrame, FileLink
 
-LAST_COMPLETE_FY = 2026
+LAST_COMPLETE_FY = None  # Auto: latest completed FY in the updated extract
 FORECAST_HORIZON = 3
 EXCLUDED_GL_CODES = [42, 4860, 4870]
 LOOKBACK = 10
@@ -76,6 +76,16 @@ for column in ['BA Number', 'GL Number', 'fy', 'Amount']:
     raw_data[column] = pd.to_numeric(raw_data[column], errors='raise')
     if raw_data[column].isna().any():
         raise ValueError(f'Missing {column} values require review before aggregation.')
+# Recalculate the origin on every run after reading the refreshed CSV.
+import sys
+sys.path.insert(0, str(project_root / 'script'))
+from forecast_calendar import forecast_calendar
+included_dates = raw_data.loc[~raw_data['GL Number'].isin(EXCLUDED_GL_CODES), 'Date']
+refresh_calendar = forecast_calendar(included_dates)
+if LAST_COMPLETE_FY is None:
+    LAST_COMPLETE_FY = refresh_calendar['complete_fy']
+print(f"Latest source date: {refresh_calendar['extract_date'].date()}; completed FY cutoff: {LAST_COMPLETE_FY}")
+
 data = raw_data.loc[
     ~raw_data['GL Number'].isin(EXCLUDED_GL_CODES) & raw_data['fy'].le(LAST_COMPLETE_FY)
 ].copy()

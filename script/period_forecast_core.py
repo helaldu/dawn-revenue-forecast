@@ -11,6 +11,7 @@ from sklearn.linear_model import LinearRegression
 from sklearn.ensemble import RandomForestRegressor
 from statsmodels.tsa.holtwinters import Holt
 from plotly.offline import get_plotlyjs
+from forecast_calendar import forecast_calendar
 
 MODELS = ['Naive baseline', 'Linear', 'Holt', 'Monte Carlo', 'ML (Random forest)']
 MIN_TRAIN_YEARS = 4  # minimum observations, despite compatibility variable name
@@ -200,10 +201,11 @@ def prepare_data(source, frequency, horizon, lookback):
     data['date'] = pd.to_datetime(data['Date'].astype(str).str.strip(), format='mixed', errors='coerce')
     if data['date'].isna().any():
         raise ValueError('Undated included records require review before period forecasting.')
-    latest = data['date'].max()
+    calendar = forecast_calendar(data['date'])
+    latest = calendar['extract_date']
     data['calendar_fy'] = data['date'].dt.year + (data['date'].dt.month >= 7).astype(int)
     # A June 30 extract closes its FY; otherwise the current FY is incomplete.
-    coverage_fy = latest.year if latest.month >= 7 or (latest.month == 6 and latest.day == 30) else latest.year - 1
+    coverage_fy = calendar['complete_fy']
     freq = 'M' if frequency == 'monthly' else 'Q-JUN'
     periods = data['date'].dt.to_period(freq)
     data['period'] = periods.astype('int64')
@@ -216,6 +218,7 @@ def prepare_data(source, frequency, horizon, lookback):
         backtest_origins=BACKTEST_ORIGINS, simulations=N_SIMULATIONS, seed=SEED,
         input_sha256=hashlib.sha256(Path(source).read_bytes()).hexdigest(),
         code_sha256=hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+        calendar_sha256=hashlib.sha256(Path(__file__).with_name('forecast_calendar.py').read_bytes()).hexdigest(),
         versions={p: importlib.metadata.version(p) for p in ['numpy','pandas','scikit-learn','statsmodels','plotly']})
     audit = dict(included_rows=len(data), excluded_rows=len(raw)-len(data),
         accounting_fy_date_mismatches=int(data['fy'].ne(data['calendar_fy']).sum()),

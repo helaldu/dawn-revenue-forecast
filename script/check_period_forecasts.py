@@ -8,7 +8,9 @@ ROOT = Path(__file__).resolve().parents[1]
 for frequency, horizon, minimum in [('monthly',6,7), ('quarterly',2,3)]:
     output = ROOT / 'result' / f'{frequency}_forecast'
     report = json.loads((output / 'model_cache.json').read_text(encoding='utf-8'))
-    assert report['settings']['coverage_fy'] == 2026  # fixture: extract through September 2026
+    from forecast_calendar import forecast_calendar
+    expected = forecast_calendar([report['settings']['data_through']])['complete_fy']
+    assert report['settings']['coverage_fy'] == expected
     eligible = 0
     for s in report['series'].values():
         assert s['gl'] not in ['42','4860','4870']

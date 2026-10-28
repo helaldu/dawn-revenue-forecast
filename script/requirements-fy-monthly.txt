@@ -1,0 +1,9 @@
+# Tested package versions for allGL_FY_monthly_actuals_forecast.ipynb
+numpy==2.4.3
+pandas==3.0.1
+scipy==1.17.1
+scikit-learn==1.8.0
+statsmodels==0.14.6
+plotly==6.6.0
+ipython==9.11.0
+nbformat==5.10.4
