@@ -37,6 +37,7 @@ def main():
     manifest=dict(started_utc=datetime.now(timezone.utc).isoformat(),source=str(source),
                   input_sha256=source_hash,status='running',notebooks=[])
     manifest_path=output/'latest_refresh.json'
+    
     def save(): manifest_path.write_text(json.dumps(manifest,indent=2),encoding='utf-8')
     save()
     try:
